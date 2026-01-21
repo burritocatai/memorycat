@@ -9,8 +9,10 @@ A beautiful terminal UI application for saving and organizing your frequently us
 - ⌨️ Simple keyboard navigation
 - 📝 Persistent storage in JSON format
 - 🤖 AI-powered command descriptions
+- 🔄 Fallback to manual description entry if AI generation fails
 - 📋 Pipe commands directly from clipboard or stdin
 - 📋 Copy saved commands back to clipboard with one keystroke
+- 🔧 Template variables support with `{{variable_name}}` syntax
 
 ## Installation
 
@@ -54,7 +56,7 @@ echo "kubectl get pods -A" | ./memorycat
 
 **List View:**
 - `n` - Add a new command
-- `c` - Copy selected command to clipboard
+- `enter` or `c` - Copy selected command to clipboard
 - `d` - Delete selected command
 - `↑/k` - Move up
 - `↓/j` - Move down
@@ -79,12 +81,31 @@ Commands are saved to: `~/.config/memorycat/commands.json`
 5. Command is saved and displayed in the list
 6. Navigate to any saved command and press `c` to copy it to clipboard
 
+**Note:** If AI generation fails (e.g., network issues, API errors), you'll be prompted to enter a description manually instead of losing your command.
+
 ### Piping from Clipboard
 ```bash
 $ pbpaste | ./memorycat
 Generating description for: docker ps -a
 Saved: Lists all Docker containers including stopped ones
 ```
+
+### Template Variables
+Save commands with template variables using `{{variable_name}}` syntax:
+
+1. Press `n` to add a new command
+2. Type: `curl -O {{url}}`
+3. Press Enter (command is saved with the template)
+4. Later, press `c` to copy the command
+5. The app will prompt you to enter a value for `{{url}}`
+6. Enter the URL value and press Enter
+7. The final command with substituted values is copied to clipboard
+
+Example templates:
+- `curl -O {{url}}` - Download a file from a URL
+- `ssh {{user}}@{{host}}` - SSH to a server
+- `docker exec -it {{container}} bash` - Enter a container
+- `git clone {{repo}} {{destination}}` - Clone a repository
 
 ## Requirements
 
