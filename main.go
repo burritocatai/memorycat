@@ -124,6 +124,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "n":
 				m.currentState = stateInput
 				m.input = ""
+				m.cursor = 0
 				m.copyMessage = ""
 			case "c", "enter":
 				if len(m.storage.Commands) > 0 {
@@ -138,6 +139,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.currentVarIndex = 0
 						m.templateCommand = command
 						m.input = ""
+						m.cursor = 0
 					} else {
 						// No template variables, copy directly
 						return m, copyToClipboard(command)
@@ -162,20 +164,32 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case tea.KeyCtrlC, tea.KeyEsc:
 				m.currentState = stateList
 				m.input = ""
+				m.cursor = 0
 			case tea.KeyEnter:
 				if m.input != "" {
 					m.currentState = stateGenerating
 					return m, generateDescription(m.input)
 				}
 			case tea.KeyBackspace:
-				if len(m.input) > 0 {
-					m.input = m.input[:len(m.input)-1]
+				if m.cursor > 0 && len(m.input) > 0 {
+					m.input = m.input[:m.cursor-1] + m.input[m.cursor:]
+					m.cursor--
+				}
+			case tea.KeyLeft:
+				if m.cursor > 0 {
+					m.cursor--
+				}
+			case tea.KeyRight:
+				if m.cursor < len(m.input) {
+					m.cursor++
 				}
 			case tea.KeySpace:
-				m.input += " "
+				m.input = m.input[:m.cursor] + " " + m.input[m.cursor:]
+				m.cursor++
 			case tea.KeyRunes:
 				// Handle both typing and paste (paste comes through as multiple runes)
-				m.input += string(msg.Runes)
+				m.input = m.input[:m.cursor] + string(msg.Runes) + m.input[m.cursor:]
+				m.cursor += len(msg.Runes)
 			}
 
 		case stateTemplateInput:
@@ -183,6 +197,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case tea.KeyCtrlC, tea.KeyEsc:
 				m.currentState = stateList
 				m.input = ""
+				m.cursor = 0
 				m.templateVars = nil
 				m.templateValues = nil
 				m.templateCommand = ""
@@ -191,6 +206,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				currentVar := m.templateVars[m.currentVarIndex]
 				m.templateValues[currentVar] = m.input
 				m.input = ""
+				m.cursor = 0
 
 				// Move to next variable or finish
 				m.currentVarIndex++
@@ -205,13 +221,24 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, copyToClipboard(finalCommand)
 				}
 			case tea.KeyBackspace:
-				if len(m.input) > 0 {
-					m.input = m.input[:len(m.input)-1]
+				if m.cursor > 0 && len(m.input) > 0 {
+					m.input = m.input[:m.cursor-1] + m.input[m.cursor:]
+					m.cursor--
+				}
+			case tea.KeyLeft:
+				if m.cursor > 0 {
+					m.cursor--
+				}
+			case tea.KeyRight:
+				if m.cursor < len(m.input) {
+					m.cursor++
 				}
 			case tea.KeySpace:
-				m.input += " "
+				m.input = m.input[:m.cursor] + " " + m.input[m.cursor:]
+				m.cursor++
 			case tea.KeyRunes:
-				m.input += string(msg.Runes)
+				m.input = m.input[:m.cursor] + string(msg.Runes) + m.input[m.cursor:]
+				m.cursor += len(msg.Runes)
 			}
 
 		case stateManualDescription:
@@ -219,6 +246,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case tea.KeyCtrlC, tea.KeyEsc:
 				m.currentState = stateList
 				m.input = ""
+				m.cursor = 0
 				m.pendingCommand = ""
 				m.err = nil
 			case tea.KeyEnter:
@@ -232,17 +260,29 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.currentState = stateList
 					m.selected = len(m.storage.Commands) - 1
 					m.input = ""
+					m.cursor = 0
 					m.pendingCommand = ""
 					m.err = nil
 				}
 			case tea.KeyBackspace:
-				if len(m.input) > 0 {
-					m.input = m.input[:len(m.input)-1]
+				if m.cursor > 0 && len(m.input) > 0 {
+					m.input = m.input[:m.cursor-1] + m.input[m.cursor:]
+					m.cursor--
+				}
+			case tea.KeyLeft:
+				if m.cursor > 0 {
+					m.cursor--
+				}
+			case tea.KeyRight:
+				if m.cursor < len(m.input) {
+					m.cursor++
 				}
 			case tea.KeySpace:
-				m.input += " "
+				m.input = m.input[:m.cursor] + " " + m.input[m.cursor:]
+				m.cursor++
 			case tea.KeyRunes:
-				m.input += string(msg.Runes)
+				m.input = m.input[:m.cursor] + string(msg.Runes) + m.input[m.cursor:]
+				m.cursor += len(msg.Runes)
 			}
 		}
 
@@ -252,6 +292,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.pendingCommand = msg.command
 			m.currentState = stateManualDescription
 			m.input = ""
+			m.cursor = 0
 			m.err = msg.err
 		} else {
 			m.storage.Commands = append(m.storage.Commands, Command{
@@ -324,7 +365,9 @@ func (m model) View() string {
 			Padding(0, 1)
 
 		b.WriteString("Enter command:\n\n")
-		b.WriteString(inputStyle.Render(m.input + "█"))
+		// Show cursor at correct position
+		displayText := m.input[:m.cursor] + "█" + m.input[m.cursor:]
+		b.WriteString(inputStyle.Render(displayText))
 		b.WriteString("\n\n")
 
 		helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
@@ -347,7 +390,9 @@ func (m model) View() string {
 
 		b.WriteString(promptStyle.Render(fmt.Sprintf("Enter value for: %s", currentVar)))
 		b.WriteString(fmt.Sprintf(" (%d/%d)\n\n", m.currentVarIndex+1, len(m.templateVars)))
-		b.WriteString(inputStyle.Render(m.input + "█"))
+		// Show cursor at correct position
+		displayText := m.input[:m.cursor] + "█" + m.input[m.cursor:]
+		b.WriteString(inputStyle.Render(displayText))
 		b.WriteString("\n\n")
 
 		// Show the command template with already filled values
@@ -376,7 +421,9 @@ func (m model) View() string {
 		b.WriteString("\n\n")
 		b.WriteString(fmt.Sprintf("Command: %s\n\n", commandStyle.Render(m.pendingCommand)))
 		b.WriteString("Please enter a description manually:\n\n")
-		b.WriteString(inputStyle.Render(m.input + "█"))
+		// Show cursor at correct position
+		displayText := m.input[:m.cursor] + "█" + m.input[m.cursor:]
+		b.WriteString(inputStyle.Render(displayText))
 		b.WriteString("\n\n")
 
 		helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
